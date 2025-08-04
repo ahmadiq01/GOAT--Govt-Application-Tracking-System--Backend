@@ -43,28 +43,6 @@ const seedData = async () => {
         department: 'IT Department',
         designation: 'System Administrator',
         isActive: true
-      },
-      {
-        username: 'admin2',
-        email: 'admin2@goat.gov.pk',
-        nic: '1234567890125',
-        phoneNo: '+92-300-1234569',
-        password: 'Admin123!',
-        role: 'admin',
-        department: 'Human Resources',
-        designation: 'HR Manager',
-        isActive: true
-      },
-      {
-        username: 'admin3',
-        email: 'admin3@goat.gov.pk',
-        nic: '1234567890126',
-        phoneNo: '+92-300-1234570',
-        password: 'Admin123!',
-        role: 'admin',
-        department: 'Finance Department',
-        designation: 'Finance Officer',
-        isActive: true
       }
     ];
 
@@ -81,55 +59,6 @@ const seedData = async () => {
         console.log(`⚠️  Admin already exists: ${adminData.username}`);
       }
     }
-
-    // Create dummy users
-    const dummyUsers = [
-      {
-        username: '1234567890127', // NIC as username
-        email: 'user1@example.com',
-        nic: '1234567890127',
-        phoneNo: '+92-300-1234571',
-        password: '+92-300-1234571', // Phone as password
-        role: 'user',
-        isActive: true
-      },
-      {
-        username: '1234567890128',
-        email: 'user2@example.com',
-        nic: '1234567890128',
-        phoneNo: '+92-300-1234572',
-        password: '+92-300-1234572',
-        role: 'user',
-        isActive: true
-      },
-      {
-        username: '1234567890129',
-        email: 'user3@example.com',
-        nic: '1234567890129',
-        phoneNo: '+92-300-1234573',
-        password: '+92-300-1234573',
-        role: 'user',
-        isActive: true
-      },
-      {
-        username: '1234567890130',
-        email: 'user4@example.com',
-        nic: '1234567890130',
-        phoneNo: '+92-300-1234574',
-        password: '+92-300-1234574',
-        role: 'user',
-        isActive: true
-      },
-      {
-        username: '1234567890131',
-        email: 'user5@example.com',
-        nic: '1234567890131',
-        phoneNo: '+92-300-1234575',
-        password: '+92-300-1234575',
-        role: 'user',
-        isActive: true
-      }
-    ];
 
     for (const userData of dummyUsers) {
       const existingUser = await User.findOne({ 
