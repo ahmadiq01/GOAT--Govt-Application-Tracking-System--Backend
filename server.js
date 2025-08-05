@@ -4,8 +4,10 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const { errorResponse } = require('./utils/responseHandler');
 
-// Import only auth routes
+// Import routes
 const authRoutes = require('./routes/auth');
+const applicationTypeRoutes = require('./routes/applicationType');
+const officerRoutes = require('./routes/officer');
 
 // Load environment variables
 dotenv.config();
@@ -21,8 +23,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Only expose login route
+// Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/application-types', applicationTypeRoutes);
+app.use('/api/officers', officerRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -38,4 +42,6 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 GOAT Backend Server is running on port ${PORT}`);
   console.log(`🔗 Login API: http://localhost:${PORT}/api/auth/login`);
+  console.log(`📋 Application Types API: http://localhost:${PORT}/api/application-types`);
+  console.log(`👥 Officers API: http://localhost:${PORT}/api/officers`);
 }); 
