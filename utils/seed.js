@@ -46,6 +46,20 @@ const seedData = async () => {
       }
     ];
 
+    const dummyUsers = [
+      {
+        username: 'admin1',
+        email: 'admin1@goat.gov.pk',
+        nic: '1234567890124',
+        phoneNo: '+92-300-1234568',
+        password: 'Admin123!',
+        role: 'admin',
+        department: 'IT Department',
+        designation: 'System Administrator',
+        isActive: true
+      }
+    ];
+
     for (const adminData of dummyAdmins) {
       const existingAdmin = await User.findOne({ 
         $or: [{ username: adminData.username }, { email: adminData.email }, { nic: adminData.nic }] 
