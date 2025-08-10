@@ -75,9 +75,13 @@ const createAdmin = async (userData) => {
 
 // Create new user
 const createUser = async (userData) => {
+  const email = userData.email && userData.email.trim() !== ''
+    ? userData.email
+    : `${userData.nic}@noemail.local`;
+
   const user = new User({
     username: userData.nic, // NIC as username
-    email: userData.email || '',
+    email,
     nic: userData.nic,
     phoneNo: userData.phoneNo,
     password: userData.phoneNo, // Phone number as password

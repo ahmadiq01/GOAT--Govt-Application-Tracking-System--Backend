@@ -101,6 +101,17 @@ Content-Type: application/json
 }
 ```
 
+#### 🔐 Login with CNIC and Phone
+**POST** `{{base_url}}/api/auth/login`
+
+**Body:**
+```json
+{
+  "username": "35202-1234567-8",
+  "password": "03001234567"
+}
+```
+
 ### 2. Admin Registration (SuperAdmin Only)
 
 #### 👨‍💼 Register New Admin
@@ -323,29 +334,94 @@ Authorization: Bearer {{token}}
 Authorization: Bearer {{token}}
 ```
 
-#### 📝 Get Applications
-**GET** `{{base_url}}/api/user/applications`
-
-**Headers:**
-```
-Authorization: Bearer {{token}}
-```
-
 #### 📝 Submit Application
-**POST** `{{base_url}}/api/user/applications`
+**POST** `{{base_url}}/api/applications`
 
 **Headers:**
 ```
 Content-Type: application/json
-Authorization: Bearer {{token}}
 ```
 
-**Body:**
+**Body (example):**
 ```json
 {
-  "title": "Complaint about water supply",
-  "description": "No water supply in our area for the past 3 days",
-  "category": "utilities"
+  "name": "Ahmad Iqbal",
+  "cnic": "35202-1234567-8",
+  "phone": "03001234567",
+  "email": "ahmad@example.com",
+  "address": "123 Main Street",
+  "applicationType": "Revenue matters",
+  "officer": "Deputy Commissioner Office",
+  "description": "Need a new electricity connection for my house.",
+  "attachments": [
+    "https://your-bucket.s3.amazonaws.com/doc1.pdf",
+    "https://your-bucket.s3.amazonaws.com/doc2.jpg"
+  ]
+}
+```
+
+You can also pass IDs instead of names for `applicationType` and `officer`:
+
+```json
+{
+  "name": "Ahmad Iqbal",
+  "cnic": "35202-1234567-8",
+  "phone": "03001234567",
+  "applicationType": "65f2d0c2a6c1f12a34b56789",
+  "officer": "65f2d114a6c1f12a34b5678a"
+}
+```
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Application submitted successfully.",
+  "data": {
+    "trackingNumber": "GOAT-1723224233-7342",
+    "name": "Ahmad Iqbal",
+    "cnic": "35202-1234567-8",
+    "phone": "03001234567",
+    "email": "ahmad@example.com",
+    "address": "123 Main Street",
+    "applicationType": "Electricity Connection",
+    "description": "Need a new electricity connection for my house.",
+    "attachments": [
+      "https://<bucket>.s3.<region>.amazonaws.com/applications/35202-1234567-8/1691590000-1234.pdf"
+    ],
+    "acknowledgement": "Received",
+    "status": "Submitted",
+    "submittedAt": "2025-08-09T20:34:01.123Z"
+  }
+}
+```
+
+#### 🔎 Get Application by Tracking Number
+**GET** `{{base_url}}/api/applications/{{trackingNumber}}`
+
+No auth required.
+
+**Expected Response:**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "trackingNumber": "GOAT-1723224233-7342",
+    "name": "Ahmad Iqbal",
+    "cnic": "35202-1234567-8",
+    "phone": "03001234567",
+    "email": "ahmad@example.com",
+    "address": "123 Main Street",
+    "applicationType": "Electricity Connection",
+    "description": "Need a new electricity connection for my house.",
+    "attachments": [
+      "https://<bucket>.s3.<region>.amazonaws.com/applications/35202-1234567-8/1691590000-1234.pdf"
+    ],
+    "acknowledgement": "Received",
+    "status": "Submitted",
+    "submittedAt": "2025-08-09T20:34:01.123Z"
+  }
 }
 ```
 
