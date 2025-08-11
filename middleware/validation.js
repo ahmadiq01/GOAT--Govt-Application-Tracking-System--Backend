@@ -152,6 +152,16 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+const validateFiles = (req, res, next) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No files provided. Please select at least one file to upload.'
+    });
+  }
+  next();
+};
+
 module.exports = {
   loginValidation,
   adminRegistrationValidation,
@@ -159,5 +169,6 @@ module.exports = {
   userProfileUpdateValidation,
   adminProfileUpdateValidation,
   passwordChangeValidation,
+  validateFiles,
   handleValidationErrors
 }; 
