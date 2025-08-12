@@ -4,22 +4,17 @@ const { successResponse, errorResponse, asyncHandler } = require('../utils/respo
 
 // POST /api/files/upload - Upload single or multiple files to S3
 const uploadFiles = asyncHandler(async (req, res) => {
-  const { applicationTrackingNumber } = req.body;
   const files = req.files;
 
   if (!files || files.length === 0) {
     return errorResponse(res, 'No files provided', 400);
   }
 
-  if (!applicationTrackingNumber) {
-    return errorResponse(res, 'Application tracking number is required', 400);
-  }
-
   try {
     const uploadPromises = files.map(async (file) => {
       try {
-        // Upload file to S3 with organized folder structure
-        const s3Url = await uploadFile(file, `applications/${applicationTrackingNumber}`);
+        // Upload file to S3 directly to uploads folder
+        const s3Url = await uploadFile(file, 'uploads');
         
         return {
           originalName: file.originalname,
@@ -43,8 +38,7 @@ const uploadFiles = asyncHandler(async (req, res) => {
       {
         message: `Successfully uploaded ${files.length} file(s)`,
         files: uploadedFiles,
-        s3Urls: s3Urls, // Just the URLs as requested
-        applicationTrackingNumber: applicationTrackingNumber
+        s3Urls: s3Urls // Just the URLs as requested
       },
       'Files uploaded successfully',
       201
@@ -56,20 +50,13 @@ const uploadFiles = asyncHandler(async (req, res) => {
   }
 });
 
-// GET /api/files/:applicationTrackingNumber - Get files for an application
-const getFilesByApplication = asyncHandler(async (req, res) => {
-  const { applicationTrackingNumber } = req.params;
-  
-  if (!applicationTrackingNumber) {
-    return errorResponse(res, 'Application tracking number is required', 400);
-  }
-
+// GET /api/files - Get all uploaded files
+const getAllFiles = asyncHandler(async (req, res) => {
   // This would typically query a database to get file records
   // For now, returning a placeholder response
   return successResponse(
     res,
     {
-      applicationTrackingNumber,
       message: 'File retrieval functionality can be implemented with database integration'
     },
     'File retrieval endpoint ready'
@@ -78,5 +65,5 @@ const getFilesByApplication = asyncHandler(async (req, res) => {
 
 module.exports = {
   uploadFiles,
-  getFilesByApplication
+  getAllFiles
 };

@@ -1,6 +1,6 @@
 // routes/fileRoutes.js - With URL refresh endpoint
 const express = require('express');
-const { uploadFiles, getFilesByApplication } = require('../controllers/fileController');
+const { uploadFiles, getAllFiles } = require('../controllers/fileController');
 const upload = require('../middleware/fileUpload');
 
 const router = express.Router();
@@ -12,7 +12,7 @@ router.post('/upload',
   uploadFiles
 );
 
-// GET /api/files/:applicationTrackingNumber - Get files for an application
-router.get('/:applicationTrackingNumber', getFilesByApplication);
+// GET /api/files - Get all uploaded files
+router.get('/', getAllFiles);
 
 module.exports = router;
