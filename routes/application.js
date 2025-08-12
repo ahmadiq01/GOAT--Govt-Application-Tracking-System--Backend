@@ -14,7 +14,8 @@ const submitValidation = [
   body('applicationType').notEmpty().withMessage('Application type is required'),
   // officer optional; can be ObjectId or name
   body('officer').optional(),
-  body('attachments').optional().isArray().withMessage('Attachments must be an array of URLs'),
+  body('attachments').optional().isArray().withMessage('Attachments must be an array of S3 URLs'),
+  body('attachments.*').optional().isURL().withMessage('Each attachment must be a valid S3 URL'),
 ];
 
 // POST /api/applications - Submit application

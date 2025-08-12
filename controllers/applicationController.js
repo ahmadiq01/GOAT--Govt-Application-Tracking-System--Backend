@@ -1,5 +1,4 @@
 const Application = require('../models/Application');
-const { uploadUrlToS3 } = require('../services/s3Service');
 const ApplicationType = require('../models/ApplicationType');
 const Officer = require('../models/Officer');
 const authService = require('../services/authService');
@@ -66,24 +65,19 @@ const submitApplication = asyncHandler(async (req, res) => {
     }
   }
 
-  // Upload attachments to S3 if configured; otherwise accept given URLs
+  // Validate that attachments are valid S3 URLs
   let savedAttachmentUrls = [];
-  const bucket = process.env.S3_BUCKET_NAME;
-  const shouldUploadToS3 = !!(bucket && process.env.AWS_REGION);
   if (attachments && attachments.length > 0) {
-    if (shouldUploadToS3) {
-      try {
-        savedAttachmentUrls = await Promise.all(
-          attachments.map((url) =>
-            uploadUrlToS3({ sourceUrl: url, bucket, keyPrefix: `applications/${cnic}` })
-          )
-        );
-      } catch (e) {
-        return errorResponse(res, 'Failed to upload attachments', 502, e);
+    // Validate that all attachments are valid S3 URLs
+    const s3UrlPattern = /^https:\/\/[^\/]+\.s3\.[^\/]+\.amazonaws\.com\/.+/;
+    
+    for (const attachment of attachments) {
+      if (!s3UrlPattern.test(attachment)) {
+        return errorResponse(res, `Invalid S3 URL format: ${attachment}`, 400);
       }
-    } else {
-      savedAttachmentUrls = attachments;
     }
+    
+    savedAttachmentUrls = attachments;
   }
 
   const trackingNumber = generateTrackingNumber();

@@ -72,8 +72,8 @@ const uploadUrlToS3 = async ({ sourceUrl, bucket, keyPrefix }) => {
   }
 };
 
-// Upload a single file to S3 - Returns presigned URL that WORKS
-const uploadFile = async (file) => {
+// Upload a single file to S3 - Returns actual S3 URL (not presigned)
+const uploadFile = async (file, folderPath = 'uploads') => {
   try {
     if (!file) {
       throw new Error('No file provided');
@@ -92,7 +92,7 @@ const uploadFile = async (file) => {
     }
 
     const fileExtension = path.extname(file.originalname);
-    const fileName = `uploads/${uuidv4()}${fileExtension}`;
+    const fileName = `${folderPath}/${uuidv4()}${fileExtension}`;
     
     const uploadParams = {
       Bucket: process.env.S3_BUCKET_NAME,
@@ -115,19 +115,12 @@ const uploadFile = async (file) => {
 
     const result = await s3.upload(uploadParams).promise();
     
-    // Generate a presigned URL that will work for 24 hours
-    const presignedUrl = await generatePresignedUrl(fileName, 86400);
+    // Return the actual S3 URL (not presigned)
+    const s3Url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
     
-    console.log('File uploaded successfully. Presigned URL generated.');
+    console.log('File uploaded successfully. S3 URL generated:', s3Url);
     
-    return {
-      success: true,
-      url: presignedUrl, // This URL will work!
-      key: result.Key,
-      originalName: file.originalname,
-      size: file.size,
-      mimeType: file.mimetype
-    };
+    return s3Url;
   } catch (error) {
     console.error('S3 Upload Error:', {
       message: error.message,
