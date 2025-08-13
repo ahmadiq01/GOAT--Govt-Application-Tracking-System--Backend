@@ -337,6 +337,10 @@ Authorization: Bearer {{token}}
 #### 📝 Submit Application
 **POST** `{{base_url}}/api/applications`
 
+**Note:** The `trackingNumber` field is now required and must be provided by the frontend. The backend no longer generates tracking numbers automatically.
+
+**Tracking Number Format:** The tracking number should follow the format `GOAT-{timestamp}-{random4digit}` (e.g., `GOAT-1723224233-7342`). You can use the utility function provided in `utils/trackingNumberGenerator.js` to generate tracking numbers in the correct format.
+
 **Headers:**
 ```
 Content-Type: application/json
@@ -345,6 +349,7 @@ Content-Type: application/json
 **Body (example):**
 ```json
 {
+  "trackingNumber": "GOAT-1723224233-7342",
   "name": "Ahmad Iqbal",
   "cnic": "35202-1234567-8",
   "phone": "03001234567",
@@ -364,6 +369,7 @@ You can also pass IDs instead of names for `applicationType` and `officer`:
 
 ```json
 {
+  "trackingNumber": "GOAT-1723224233-7342",
   "name": "Ahmad Iqbal",
   "cnic": "35202-1234567-8",
   "phone": "03001234567",

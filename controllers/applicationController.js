@@ -4,15 +4,12 @@ const Officer = require('../models/Officer');
 const authService = require('../services/authService');
 const { successResponse, errorResponse, asyncHandler } = require('../utils/responseHandler');
 
-const generateTrackingNumber = () => {
-  const ts = Math.floor(Date.now() / 1000);
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `GOAT-${ts}-${rand}`;
-};
+
 
 // POST /api/applications
 const submitApplication = asyncHandler(async (req, res) => {
   const {
+    trackingNumber,  // Accept tracking number from frontend
     name,
     cnic,
     phone,
@@ -24,8 +21,14 @@ const submitApplication = asyncHandler(async (req, res) => {
     attachments = [],
   } = req.body;
 
-  if (!name || !cnic || !phone || !applicationType) {
-    return errorResponse(res, 'Missing required fields: name, cnic, phone, applicationType', 400);
+  if (!trackingNumber || !name || !cnic || !phone || !applicationType) {
+    return errorResponse(res, 'Missing required fields: trackingNumber, name, cnic, phone, applicationType', 400);
+  }
+
+  // Check if tracking number already exists
+  const existingApplication = await Application.findOne({ trackingNumber });
+  if (existingApplication) {
+    return errorResponse(res, 'Tracking number already exists', 400);
   }
 
   // Ensure user exists with credentials (username = cnic, password = phone)
@@ -79,8 +82,6 @@ const submitApplication = asyncHandler(async (req, res) => {
     
     savedAttachmentUrls = attachments;
   }
-
-  const trackingNumber = generateTrackingNumber();
 
   const application = new Application({
     trackingNumber,
