@@ -80,6 +80,8 @@ const createUser = async (userData) => {
     : `${userData.nic}@noemail.local`;
 
   const user = new User({
+    name: userData.name,
+    address: userData.address,
     username: userData.nic, // NIC as username
     email,
     nic: userData.nic,

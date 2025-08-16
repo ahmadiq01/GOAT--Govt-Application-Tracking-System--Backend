@@ -3,6 +3,15 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   // Common fields for all user types
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  address: {
+    type: String,
+    trim: true
+  },
   username: {
     type: String,
     required: true,

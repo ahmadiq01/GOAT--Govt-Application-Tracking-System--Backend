@@ -1,7 +1,14 @@
 const express = require('express');
 const { body } = require('express-validator');
-const { submitApplication, getApplicationByTrackingNumber } = require('../controllers/applicationController');
+const { 
+  submitApplication, 
+  getApplicationByTrackingNumber, 
+  getUserApplications, 
+  getUserApplicationsSummary,
+  getAllApplications
+} = require('../controllers/applicationController');
 const { handleValidationErrors } = require('../middleware/validation');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -21,8 +28,17 @@ const submitValidation = [
 // POST /api/applications - Submit application
 router.post('/', submitValidation, handleValidationErrors, submitApplication);
 
+// GET /api/applications - Get all applications (admin/superadmin only)
+router.get('/', authenticateToken, getAllApplications);
+
 // GET /api/applications/:trackingNumber - Fetch application by tracking number
 router.get('/:trackingNumber', getApplicationByTrackingNumber);
+
+// GET /api/applications/user/:cnic - Fetch user details with all applications
+router.get('/user/:cnic', authenticateToken, getUserApplications);
+
+// GET /api/applications/user/:cnic/summary - Fetch user applications summary
+router.get('/user/:cnic/summary', authenticateToken, getUserApplicationsSummary);
 
 module.exports = router;
 

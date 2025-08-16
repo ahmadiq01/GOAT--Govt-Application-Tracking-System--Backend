@@ -36,7 +36,23 @@ const submitApplication = asyncHandler(async (req, res) => {
     // Try to find existing by nic
     let user = await authService.findUserByCredentials(cnic);
     if (!user) {
-      user = await authService.createUser({ nic: cnic, phoneNo: phone, email });
+      user = await authService.createUser({ 
+        name, 
+        address, 
+        nic: cnic, 
+        phoneNo: phone, 
+        email 
+      });
+    } else {
+      // Update existing user with name and address if they are missing
+      const updateData = {};
+      if (!user.name && name) updateData.name = name;
+      if (!user.address && address) updateData.address = address;
+      if (!user.email && email) updateData.email = email;
+      
+      if (Object.keys(updateData).length > 0) {
+        user = await authService.updateUserById(user._id, updateData);
+      }
     }
   } catch (e) {
     // Duplicate key race or validation errors
@@ -149,9 +165,243 @@ const getApplicationByTrackingNumber = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/applications/user/:cnic
+const getUserApplications = asyncHandler(async (req, res) => {
+  const { cnic } = req.params;
+  const { role } = req.user; // Get user role from auth middleware
+
+  // Find user by CNIC
+  const user = await authService.findUserByCredentials(cnic);
+  if (!user) {
+    return errorResponse(res, 'User not found', 404);
+  }
+
+  // Check if user has permission to view this data
+  if (role === 'user' && req.user.nic !== cnic) {
+    return errorResponse(res, 'Access denied. You can only view your own applications.', 403);
+  }
+
+  // Find all applications for this user
+  const applications = await Application.find({ cnic })
+    .populate('applicationTypeId', 'name description')
+    .populate('officerId', 'name designation department')
+    .sort({ createdAt: -1 });
+
+  // Get application types and officers for reference
+  const applicationTypes = await ApplicationType.find({});
+  const officers = await Officer.find({});
+
+  return successResponse(res, {
+    user: {
+      _id: user._id,
+      name: user.name,
+      address: user.address,
+      email: user.email,
+      nic: user.nic,
+      phoneNo: user.phoneNo,
+      role: user.role,
+      createdAt: user.createdAt
+    },
+    applications: applications.map(app => ({
+      _id: app._id,
+      trackingNumber: app.trackingNumber,
+      name: app.name,
+      cnic: app.cnic,
+      phone: app.phone,
+      email: app.email,
+      address: app.address,
+      applicationType: {
+        _id: app.applicationTypeId._id,
+        name: app.applicationTypeName,
+        description: app.applicationTypeId.description
+      },
+      officer: app.officerId ? {
+        _id: app.officerId._id,
+        name: app.officerName,
+        designation: app.officerDesignation,
+        department: app.officerId.department
+      } : null,
+      description: app.description,
+      attachments: app.attachments,
+      status: app.status,
+      acknowledgement: app.acknowledgement,
+      submittedAt: app.submittedAt,
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt
+    })),
+    applicationTypes: applicationTypes.map(type => ({
+      _id: type._id,
+      name: type.name,
+      description: type.description
+    })),
+    officers: officers.map(officer => ({
+      _id: officer._id,
+      name: officer.name,
+      designation: officer.designation,
+      department: officer.department
+    }))
+  });
+});
+
+// GET /api/applications/user/:cnic/summary
+const getUserApplicationsSummary = asyncHandler(async (req, res) => {
+  const { cnic } = req.params;
+  const { role } = req.user; // Get user role from auth middleware
+
+  // Find user by CNIC
+  const user = await authService.findUserByCredentials(cnic);
+  if (!user) {
+    return errorResponse(res, 'User not found', 404);
+  }
+
+  // Check if user has permission to view this data
+  if (role === 'user' && req.user.nic !== cnic) {
+    return errorResponse(res, 'Access denied. You can only view your own applications.', 403);
+  }
+
+  // Get application counts by status
+  const statusCounts = await Application.aggregate([
+    { $match: { cnic } },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  // Get recent applications (last 5)
+  const recentApplications = await Application.find({ cnic })
+    .select('trackingNumber name applicationTypeName status submittedAt')
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+  // Get application type distribution
+  const applicationTypeDistribution = await Application.aggregate([
+    { $match: { cnic } },
+    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
+  ]);
+
+  return successResponse(res, {
+    user: {
+      _id: user._id,
+      name: user.name,
+      address: user.address,
+      email: user.email,
+      nic: user.nic,
+      phoneNo: user.phoneNo,
+      role: user.role
+    },
+    summary: {
+      totalApplications: statusCounts.reduce((sum, item) => sum + item.count, 0),
+      statusBreakdown: statusCounts,
+      applicationTypeDistribution,
+      recentApplications
+    }
+  });
+});
+
+// GET /api/applications - Get all applications (admin/superadmin only)
+const getAllApplications = asyncHandler(async (req, res) => {
+  const { role } = req.user;
+  
+  // Check if user has permission to view all applications
+  if (role === 'user') {
+    return errorResponse(res, 'Access denied. Only admin users can view all applications.', 403);
+  }
+
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    applicationType,
+    officer,
+    cnic,
+    startDate,
+    endDate,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+  } = req.query;
+
+  // Build filter query
+  const filter = {};
+  if (status) filter.status = status;
+  if (applicationType) filter.applicationTypeName = { $regex: applicationType, $options: 'i' };
+  if (officer) filter.officerName = { $regex: officer, $options: 'i' };
+  if (cnic) filter.cnic = { $regex: cnic, $options: 'i' };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) filter.createdAt.$lte = new Date(endDate);
+  }
+
+  // Build sort query
+  const sort = {};
+  sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+  // Execute query with pagination
+  const applications = await Application.find(filter)
+    .populate('applicationTypeId', 'name description')
+    .populate('officerId', 'name designation department')
+    .sort(sort)
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+  // Get total count for pagination
+  const total = await Application.countDocuments(filter);
+
+  // Get summary statistics
+  const statusStats = await Application.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const applicationTypeStats = await Application.aggregate([
+    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
+  ]);
+
+  return successResponse(res, {
+    applications: applications.map(app => ({
+      _id: app._id,
+      trackingNumber: app.trackingNumber,
+      name: app.name,
+      cnic: app.cnic,
+      phone: app.phone,
+      email: app.email,
+      address: app.address,
+      applicationType: {
+        _id: app.applicationTypeId._id,
+        name: app.applicationTypeName,
+        description: app.applicationTypeId.description
+      },
+      officer: app.officerId ? {
+        _id: app.officerId._id,
+        name: app.officerName,
+        designation: app.officerDesignation,
+        department: app.officerId.department
+      } : null,
+      description: app.description,
+      attachments: app.attachments,
+      status: app.status,
+      acknowledgement: app.acknowledgement,
+      submittedAt: app.submittedAt,
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt
+    })),
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalApplications: total,
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    },
+    statistics: {
+      statusBreakdown: statusStats,
+      applicationTypeBreakdown: applicationTypeStats
+    }
+  });
+});
+
 module.exports = {
   submitApplication,
   getApplicationByTrackingNumber,
+  getUserApplications,
+  getUserApplicationsSummary,
+  getAllApplications,
 };
 
 
