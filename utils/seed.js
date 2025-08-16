@@ -4,7 +4,6 @@ require('dotenv').config();
 
 const seedData = async () => {
   try {
-    // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/goat-system');
     console.log('✅ Connected to MongoDB for seeding');
 
@@ -16,11 +15,12 @@ const seedData = async () => {
     } else {
       // Create superadmin user
       const superAdmin = new User({
+        name: 'Super Admin',
         username: 'superadmin',
         email: 'superadmin@goat.gov.pk',
         nic: '1234567890123',
         phoneNo: '+92-300-1234567',
-        password: 'SuperAdmin123!',
+        password: 'SuperAdmin123!', // You might want to hash this
         role: 'superadmin',
         department: 'System Administration',
         designation: 'Super Administrator',
@@ -31,9 +31,10 @@ const seedData = async () => {
       console.log('✅ SuperAdmin created successfully!');
     }
 
-    // Create dummy admins
+    // Dummy admins
     const dummyAdmins = [
       {
+        name: 'Admin One',
         username: 'admin1',
         email: 'admin1@goat.gov.pk',
         nic: '1234567890124',
@@ -46,16 +47,28 @@ const seedData = async () => {
       }
     ];
 
+    // Dummy users
     const dummyUsers = [
       {
-        username: 'admin1',
-        email: 'admin1@goat.gov.pk',
-        nic: '1234567890124',
-        phoneNo: '+92-300-1234568',
-        password: 'Admin123!',
-        role: 'admin',
-        department: 'IT Department',
-        designation: 'System Administrator',
+        name: 'User One',
+        username: 'user1',
+        address: '123 Main St, Anytown, USA',
+        email: 'user1@goat.gov.pk',
+        nic: '1234567890127',
+        phoneNo: '+92-300-1234571',
+        password: '+92-300-1234571',
+        role: 'user',
+        isActive: true
+      },
+      {
+        name: 'User Two',
+        username: 'user2',
+        address: '456 Oak St, Somewhere, USA',
+        email: 'user2@goat.gov.pk',
+        nic: '1234567890128',
+        phoneNo: '+92-300-1234572',
+        password: '+92-300-1234572',
+        role: 'user',
         isActive: true
       }
     ];
@@ -98,15 +111,10 @@ const seedData = async () => {
 
     console.log('\n👨‍💼 Admins:');
     console.log('   1. Username: admin1, Password: Admin123!, NIC: 1234567890124');
-    console.log('   2. Username: admin2, Password: Admin123!, NIC: 1234567890125');
-    console.log('   3. Username: admin3, Password: Admin123!, NIC: 1234567890126');
 
     console.log('\n👤 Users (Login with NIC as username, phone as password):');
-    console.log('   1. NIC: 1234567890127, Phone: +92-300-1234571');
-    console.log('   2. NIC: 1234567890128, Phone: +92-300-1234572');
-    console.log('   3. NIC: 1234567890129, Phone: +92-300-1234573');
-    console.log('   4. NIC: 1234567890130, Phone: +92-300-1234574');
-    console.log('   5. NIC: 1234567890131, Phone: +92-300-1234575');
+    console.log('   1. Username: user1, Password: +92-300-1234571, NIC: 1234567890127');
+    console.log('   2. Username: user2, Password: +92-300-1234572, NIC: 1234567890128');
 
     console.log('\n🔐 Please change the passwords after first login!');
 
@@ -119,5 +127,4 @@ const seedData = async () => {
   }
 };
 
-// Run the seeder
-seedData(); 
+seedData();
