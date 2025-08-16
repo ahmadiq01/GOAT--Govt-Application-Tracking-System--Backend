@@ -5,7 +5,8 @@ const {
   getApplicationByTrackingNumber, 
   getUserApplications, 
   getUserApplicationsSummary,
-  getAllApplications
+  getAllApplications,
+  getUserDetails
 } = require('../controllers/applicationController');
 const { handleValidationErrors } = require('../middleware/validation');
 const { authenticateToken } = require('../middleware/auth');
@@ -39,6 +40,9 @@ router.get('/user/:cnic', authenticateToken, getUserApplications);
 
 // GET /api/applications/user/:cnic/summary - Fetch user applications summary
 router.get('/user/:cnic/summary', authenticateToken, getUserApplicationsSummary);
+
+// GET /api/applications/user/details/:cnic - Fetch user details by CNIC
+router.get('/user/details/:cnic', getUserDetails);
 
 module.exports = router;
 

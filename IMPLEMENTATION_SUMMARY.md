@@ -44,7 +44,22 @@
   - Application type distribution
   - Recent applications (last 5)
 
-### 3. Get All Applications (Admin Only)
+### 3. Get User Details by CNIC
+**Endpoint**: `GET /api/applications/user/details/:cnic`
+**Authentication**: Not required (public endpoint)
+**Access Control**: Public access - anyone can view user details by CNIC
+
+**Response Includes**:
+- Full Name
+- Existing User status
+- CNIC Number
+- Mobile Number
+- Email Address
+- Complete Address
+- Total Applications count
+- User ID, Role, and timestamps
+
+### 4. Get All Applications (Admin Only)
 **Endpoint**: `GET /api/applications`
 **Authentication**: Required
 **Access Control**: Admin and Superadmin users only
@@ -173,6 +188,5 @@ Authorization: Bearer <jwt-token>
 - ✅ `routes/application.js` - Added new routes
 - ✅ `API_DOCUMENTATION.md` - Comprehensive API documentation
 - ✅ `IMPLEMENTATION_SUMMARY.md` - This summary document
-- ✅ `test-api.js` - API testing script
 
 All changes maintain backward compatibility and follow the existing code patterns and architecture.

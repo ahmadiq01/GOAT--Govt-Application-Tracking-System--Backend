@@ -296,6 +296,35 @@ const getUserApplicationsSummary = asyncHandler(async (req, res) => {
   });
 });
 
+// GET /api/applications/user/details/:cnic
+const getUserDetails = asyncHandler(async (req, res) => {
+  const { cnic } = req.params;
+
+  // Find user by CNIC
+  const user = await authService.findUserByCredentials(cnic);
+  if (!user) {
+    return errorResponse(res, 'User not found', 404);
+  }
+
+  // Get user's application count
+  const applicationCount = await Application.countDocuments({ cnic });
+
+  // Format response as requested
+  return successResponse(res, {
+    "Full Name": user.name || "N/A",
+    "Existing User": "Yes",
+    "CNIC Number": user.nic || "N/A",
+    "Mobile Number": user.phoneNo || "N/A",
+    "Email Address": user.email || "N/A",
+    "Complete Address": user.address || "N/A",
+    "Total Applications": applicationCount,
+    "User ID": user._id,
+    "Role": user.role,
+    "Created At": user.createdAt,
+    "Last Updated": user.updatedAt
+  });
+});
+
 // GET /api/applications - Get all applications (admin/superadmin only)
 const getAllApplications = asyncHandler(async (req, res) => {
   const { role } = req.user;
@@ -401,6 +430,7 @@ module.exports = {
   getApplicationByTrackingNumber,
   getUserApplications,
   getUserApplicationsSummary,
+  getUserDetails,
   getAllApplications,
 };
 

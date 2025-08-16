@@ -198,7 +198,7 @@ Get user details with all applications (requires authentication).
 }
 ```
 
-#### GET /applications/user/:cnic/summary
+#### GET /api/applications/user/:cnic/summary
 Get user applications summary (requires authentication).
 
 **Response:**
@@ -228,6 +228,29 @@ Get user applications summary (requires authentication).
       ],
       "recentApplications": [...]
     }
+  }
+}
+```
+
+#### GET /api/applications/user/details/:cnic
+Get user details by CNIC (public endpoint, no authentication required).
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "Full Name": "John Doe",
+    "Existing User": "Yes",
+    "CNIC Number": "12345-1234567-1",
+    "Mobile Number": "0300-1234567",
+    "Email Address": "john@example.com",
+    "Complete Address": "123 Main Street, City",
+    "Total Applications": 5,
+    "User ID": "user-id",
+    "Role": "user",
+    "Created At": "2024-01-01T00:00:00.000Z",
+    "Last Updated": "2024-01-01T00:00:00.000Z"
   }
 }
 ```
@@ -310,10 +333,11 @@ All endpoints return consistent error responses:
 
 2. **User Updates**: If a user already exists but is missing name or address, these will be updated when they submit a new application.
 
-3. **Authentication**: Most endpoints require a valid JWT token obtained from the login endpoint.
+3. **Authentication**: Most endpoints require a valid JWT token obtained from the login endpoint, except for the user details endpoint which is publicly accessible.
 
 4. **Role-Based Access**: 
    - Regular users can only view their own applications
    - Admin/Superadmin users can view all applications and manage the system
+   - User details endpoint is publicly accessible for quick user lookups
 
 5. **File Uploads**: Files are stored in AWS S3 and the URLs are returned for use in applications. 
