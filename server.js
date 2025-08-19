@@ -10,6 +10,7 @@ const applicationTypeRoutes = require('./routes/applicationType');
 const applicationRoutes = require('./routes/application');
 const officerRoutes = require('./routes/officer');
 const fileRoutes = require('./routes/fileRoutes');
+const feedbackRoutes = require('./routes/feedback');
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/application-types', applicationTypeRoutes);
 app.use('/api/officers', officerRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -80,5 +82,6 @@ app.listen(PORT, () => {
   console.log(`👥 Officers API: http://localhost:${PORT}/api/officers`);
   console.log(`📝 Applications API: http://localhost:${PORT}/api/applications`);
   console.log(`📁 Files API: http://localhost:${PORT}/api/files`);
+  console.log(`💬 Feedback API: http://localhost:${PORT}/api/feedback`);
   console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
 });

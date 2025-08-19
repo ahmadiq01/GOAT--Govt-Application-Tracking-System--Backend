@@ -6,6 +6,8 @@ const {
   getUserApplications, 
   getUserApplicationsSummary,
   getAllApplications,
+  getAllApplicationsComprehensive,
+  getAllApplicationsAdminComprehensive,
   getUserDetails
 } = require('../controllers/applicationController');
 const { handleValidationErrors } = require('../middleware/validation');
@@ -31,6 +33,12 @@ router.post('/', submitValidation, handleValidationErrors, submitApplication);
 
 // GET /api/applications - Get all applications (admin/superadmin only)
 router.get('/', authenticateToken, getAllApplications);
+
+// GET /api/applications/comprehensive - Get all applications with comprehensive data
+router.get('/comprehensive', authenticateToken, getAllApplicationsComprehensive);
+
+// GET /api/applications/admin/comprehensive - Get ALL applications with comprehensive data (Admin/Superadmin only)
+router.get('/admin/comprehensive', authenticateToken, getAllApplicationsAdminComprehensive);
 
 // GET /api/applications/:trackingNumber - Fetch application by tracking number
 router.get('/:trackingNumber', getApplicationByTrackingNumber);

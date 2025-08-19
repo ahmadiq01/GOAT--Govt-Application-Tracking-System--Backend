@@ -1,4 +1,403 @@
-# GOAT Backend API Documentation
+# GOAT System API Documentation
+
+## Applications API
+
+### Get All Applications (Basic)
+**GET** `/api/applications`
+
+Returns all applications with basic information. Admin/superadmin access required.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `status` (optional): Filter by status
+- `applicationType` (optional): Filter by application type name
+- `officer` (optional): Filter by officer name
+- `cnic` (optional): Filter by CNIC
+- `startDate` (optional): Filter by start date
+- `endDate` (optional): Filter by end date
+- `sortBy` (optional): Sort field (default: createdAt)
+- `sortOrder` (optional): Sort order - 'asc' or 'desc' (default: desc)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "applications": [...],
+    "pagination": {...},
+    "statistics": {...}
+  }
+}
+```
+
+### Get All Applications (Comprehensive) ⭐ NEW
+**GET** `/api/applications/comprehensive`
+
+Returns the authenticated user's own applications with comprehensive data including:
+- Complete user information (based on authentication token)
+- Detailed application type data
+- Full officer details
+- Complete file attachment information
+
+**Security:** Users can only see their own applications based on their NIC from the authentication token.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 50)
+- `status` (optional): Filter by status
+- `applicationType` (optional): Filter by application type name
+- `officer` (optional): Filter by officer name
+- `startDate` (optional): Filter by start date
+- `endDate` (optional): Filter by end date
+- `sortBy` (optional): Sort field (default: createdAt)
+- `sortOrder` (optional): Sort order - 'asc' or 'desc' (default: desc)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "applications": [
+      {
+        "_id": "...",
+        "trackingNumber": "...",
+        "name": "...",
+        "cnic": "...",
+        "phone": "...",
+        "email": "...",
+        "address": "...",
+        "user": {
+          "_id": "...",
+          "name": "...",
+          "email": "...",
+          "address": "...",
+          "phoneNo": "...",
+          "role": "...",
+          "department": "...",
+          "designation": "..."
+        },
+        "applicationType": {
+          "_id": "...",
+          "name": "...",
+          "description": "...",
+          "requirements": "...",
+          "processingTime": "...",
+          "fees": "..."
+        },
+        "officer": {
+          "_id": "...",
+          "name": "...",
+          "designation": "...",
+          "department": "...",
+          "email": "...",
+          "phoneNo": "..."
+        },
+        "description": "...",
+        "attachments": [
+          {
+            "fileUrl": "...",
+            "originalName": "...",
+            "fileName": "...",
+            "mimeType": "...",
+            "size": 12345,
+            "uploadDate": "..."
+          }
+        ],
+        "status": "...",
+        "acknowledgement": "...",
+        "submittedAt": "...",
+        "createdAt": "...",
+        "updatedAt": "..."
+      }
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 5,
+      "totalApplications": 250,
+      "hasNextPage": true,
+      "hasPrevPage": false
+    },
+    "statistics": {
+      "statusBreakdown": [...],
+      "applicationTypeBreakdown": [...]
+    },
+    "userInfo": {
+      "nic": "...",
+      "role": "...",
+      "totalApplications": 250
+    },
+    "comprehensive": true
+  }
+}
+```
+
+**Authentication:** Required (All authenticated users)
+**Access Control:** Users can only see their own applications
+
+### Get All Applications (Admin Comprehensive) ⭐ NEW
+**GET** `/api/applications/admin/comprehensive`
+
+Returns ALL applications across all users with comprehensive data. Admin/Superadmin access only.
+
+**Security:** Only admin and superadmin users can access this endpoint.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 50)
+- `status` (optional): Filter by status
+- `applicationType` (optional): Filter by application type name
+- `officer` (optional): Filter by officer name
+- `cnic` (optional): Filter by specific CNIC
+- `startDate` (optional): Filter by start date
+- `endDate` (optional): Filter by end date
+- `sortBy` (optional): Sort field (default: createdAt)
+- `sortOrder` (optional): Sort order - 'asc' or 'desc' (default: desc)
+
+**Response:** Same structure as above, but includes `"adminAccess": true` and shows all applications across all users.
+
+**Authentication:** Required (Admin/Superadmin only)
+**Access Control:** Admins can see all applications across all users
+
+## Feedback API 💬 NEW
+
+The feedback system allows officers to provide feedback to users and users to reply back, creating a conversation thread for each application.
+
+### Create Feedback (Officer to User)
+**POST** `/api/feedback`
+
+Officers can create feedback for users on applications assigned to them.
+
+**Request Body:**
+```json
+{
+  "applicationId": "application_id_here",
+  "userId": "user_id_here",
+  "message": "Your application requires additional documents. Please upload your ID card and address proof.",
+  "attachmentUrl": "https://s3.amazonaws.com/bucket/file.pdf",
+  "attachment": {
+    "originalName": "requirements.pdf",
+    "fileName": "requirements_123.pdf",
+    "mimeType": "application/pdf",
+    "size": 1024000,
+    "fileUrl": "https://s3.amazonaws.com/bucket/file.pdf"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback sent successfully",
+  "data": {
+    "feedback": {
+      "_id": "feedback_id",
+      "applicationId": "application_id",
+      "officerId": "officer_id",
+      "userId": "user_id",
+      "message": "Your application requires additional documents...",
+      "attachment": {...},
+      "type": "officer_feedback",
+      "threadId": "thread_id",
+      "status": "sent",
+      "sentAt": "2024-01-15T10:30:00Z",
+      "createdAt": "2024-01-15T10:30:00Z"
+    }
+  }
+}
+```
+
+**Authentication:** Required (Officer/Admin/Superadmin only)
+**Access Control:** Officers can only provide feedback for applications assigned to them
+
+### Reply to Feedback (User to Officer)
+**POST** `/api/feedback/:feedbackId/reply`
+
+Users can reply to officer feedback, creating a conversation thread.
+
+**Request Body:**
+```json
+{
+  "message": "I have uploaded the required documents. Please review them.",
+  "attachmentUrl": "https://s3.amazonaws.com/bucket/reply.pdf",
+  "attachment": {
+    "originalName": "documents.pdf",
+    "fileName": "documents_456.pdf",
+    "mimeType": "application/pdf",
+    "size": 2048000,
+    "fileUrl": "https://s3.amazonaws.com/bucket/reply.pdf"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Reply sent successfully",
+  "data": {
+    "reply": {
+      "_id": "reply_id",
+      "applicationId": "application_id",
+      "officerId": "officer_id",
+      "userId": "user_id",
+      "message": "I have uploaded the required documents...",
+      "attachment": {...},
+      "type": "user_reply",
+      "parentFeedbackId": "feedback_id",
+      "threadId": "thread_id",
+      "status": "sent",
+      "sentAt": "2024-01-15T11:00:00Z",
+      "createdAt": "2024-01-15T11:00:00Z"
+    }
+  }
+}
+```
+
+**Authentication:** Required (User only)
+**Access Control:** Users can only reply to feedback intended for them
+
+### Get Application Feedback Thread
+**GET** `/api/feedback/application/:applicationId`
+
+Get all feedback and replies for a specific application, organized in conversation threads.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "application": {
+      "_id": "application_id",
+      "trackingNumber": "GOAT-2024-001",
+      "name": "John Doe"
+    },
+    "feedbackThreads": [
+      {
+        "threadId": "thread_id",
+        "feedbacks": [
+          {
+            "_id": "feedback_id",
+            "message": "Your application requires additional documents...",
+            "type": "officer_feedback",
+            "officerId": {
+              "name": "Officer Name",
+              "designation": "Senior Officer",
+              "department": "IT Department"
+            },
+            "userId": {
+              "name": "John Doe",
+              "email": "john@example.com"
+            },
+            "attachment": {...},
+            "status": "replied",
+            "sentAt": "2024-01-15T10:30:00Z"
+          },
+          {
+            "_id": "reply_id",
+            "message": "I have uploaded the required documents...",
+            "type": "user_reply",
+            "officerId": {...},
+            "userId": {...},
+            "attachment": {...},
+            "status": "sent",
+            "sentAt": "2024-01-15T11:00:00Z"
+          }
+        ],
+        "totalMessages": 2,
+        "latestMessage": {...}
+      }
+    ]
+  }
+}
+```
+
+**Authentication:** Required
+**Access Control:** Users can only see feedback for their own applications, officers can see feedback for applications assigned to them
+
+### Get User Feedback
+**GET** `/api/feedback/user`
+
+Get all feedback received by the authenticated user.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20)
+- `status` (optional): Filter by status (sent, read, replied)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedbacks": [...],
+    "pagination": {...},
+    "unreadCount": 3
+  }
+}
+```
+
+**Authentication:** Required (User only)
+**Access Control:** Users can only see their own feedback
+
+### Get Officer Feedback
+**GET** `/api/feedback/officer`
+
+Get all feedback sent by the authenticated officer.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 20)
+- `status` (optional): Filter by status
+- `applicationId` (optional): Filter by specific application
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "feedbacks": [...],
+    "pagination": {...},
+    "pendingRepliesCount": 2
+  }
+}
+```
+
+**Authentication:** Required (Officer/Admin/Superadmin only)
+**Access Control:** Officers can only see feedback they sent
+
+### Mark Feedback as Read
+**PUT** `/api/feedback/:feedbackId/read`
+
+Mark a specific feedback message as read.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback marked as read successfully"
+}
+```
+
+**Authentication:** Required
+**Access Control:** Users can only mark their own feedback as read, officers can only mark their own feedback as read
+
+### Delete Feedback
+**DELETE** `/api/feedback/:feedbackId`
+
+Delete a feedback message (only if it has no replies).
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Feedback deleted successfully"
+}
+```
+
+**Authentication:** Required
+**Access Control:** Users can only delete their own replies, officers can only delete their own feedback
 
 ## Base URL
 ```
@@ -81,42 +480,6 @@ Submit a new application.
     "acknowledgement": "Received",
     "status": "Submitted",
     "submittedAt": "2024-01-01T00:00:00.000Z"
-  }
-}
-```
-
-#### GET /applications
-Get all applications (Admin/Superadmin only).
-
-**Query Parameters:**
-- `page` (optional): Page number (default: 1)
-- `limit` (optional): Items per page (default: 10)
-- `status` (optional): Filter by status
-- `applicationType` (optional): Filter by application type
-- `officer` (optional): Filter by officer name
-- `cnic` (optional): Filter by CNIC
-- `startDate` (optional): Filter by start date
-- `endDate` (optional): Filter by end date
-- `sortBy` (optional): Sort field (default: createdAt)
-- `sortOrder` (optional): Sort order - asc/desc (default: desc)
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "applications": [...],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 5,
-      "totalApplications": 50,
-      "hasNextPage": true,
-      "hasPrevPage": false
-    },
-    "statistics": {
-      "statusBreakdown": [...],
-      "applicationTypeBreakdown": [...]
-    }
   }
 }
 ```

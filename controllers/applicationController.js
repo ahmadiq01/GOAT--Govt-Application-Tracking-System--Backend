@@ -344,7 +344,8 @@ const getAllApplications = asyncHandler(async (req, res) => {
     startDate,
     endDate,
     sortBy = 'createdAt',
-    sortOrder = 'desc'
+    sortOrder = 'desc',
+    comprehensive = 'false' // New parameter for comprehensive data
   } = req.query;
 
   // Build filter query
@@ -365,8 +366,8 @@ const getAllApplications = asyncHandler(async (req, res) => {
 
   // Execute query with pagination
   const applications = await Application.find(filter)
-    .populate('applicationTypeId', 'name description')
-    .populate('officerId', 'name designation department')
+    .populate('applicationTypeId', 'name description requirements processingTime fees')
+    .populate('officerId', 'name designation department email phoneNo')
     .sort(sort)
     .limit(limit * 1)
     .skip((page - 1) * limit);
@@ -374,17 +375,103 @@ const getAllApplications = asyncHandler(async (req, res) => {
   // Get total count for pagination
   const total = await Application.countDocuments(filter);
 
-  // Get summary statistics
-  const statusStats = await Application.aggregate([
-    { $group: { _id: '$status', count: { $sum: 1 } } }
-  ]);
+  // If comprehensive data is requested, fetch additional details
+  let comprehensiveApplications = applications;
+  
+  if (comprehensive === 'true') {
+    // Get unique CNICs from applications to fetch user data
+    const uniqueCnicList = [...new Set(applications.map(app => app.cnic))];
+    
+    // Fetch user data for all applications
+    const User = require('../models/User');
+    const users = await User.find({ nic: { $in: uniqueCnicList } }, 'name email address phoneNo role department designation');
+    
+    // Create a map for quick user lookup
+    const userMap = {};
+    users.forEach(user => {
+      userMap[user.nic] = user;
+    });
 
-  const applicationTypeStats = await Application.aggregate([
-    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
-  ]);
+    // Fetch file data for all attachments
+    const File = require('../models/File');
+    const allAttachmentUrls = applications.flatMap(app => app.attachments || []);
+    
+    // Extract S3 keys from URLs to find files
+    const s3Keys = allAttachmentUrls.map(url => {
+      const urlParts = url.split('/');
+      return urlParts[urlParts.length - 1]; // Get the filename from URL
+    });
+    
+    const files = await File.find({ fileName: { $in: s3Keys } });
+    const fileMap = {};
+    files.forEach(file => {
+      fileMap[file.fileName] = file;
+    });
 
-  return successResponse(res, {
-    applications: applications.map(app => ({
+    // Enhance applications with comprehensive data
+    comprehensiveApplications = applications.map(app => {
+      const user = userMap[app.cnic];
+      const appFiles = (app.attachments || []).map(url => {
+        const fileName = url.split('/').pop();
+        return fileMap[fileName] || { fileUrl: url, originalName: fileName };
+      });
+
+      return {
+        _id: app._id,
+        trackingNumber: app.trackingNumber,
+        name: app.name,
+        cnic: app.cnic,
+        phone: app.phone,
+        email: app.email,
+        address: app.address,
+        
+        // User data
+        user: user ? {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          address: user.address,
+          phoneNo: user.phoneNo,
+          role: user.role,
+          department: user.department,
+          designation: user.designation
+        } : null,
+        
+        // Application type details
+        applicationType: {
+          _id: app.applicationTypeId._id,
+          name: app.applicationTypeName,
+          description: app.applicationTypeId.description,
+          requirements: app.applicationTypeId.requirements,
+          processingTime: app.applicationTypeId.processingTime,
+          fees: app.applicationTypeId.fees
+        },
+        
+        // Officer details
+        officer: app.officerId ? {
+          _id: app.officerId._id,
+          name: app.officerName,
+          designation: app.officerDesignation,
+          department: app.officerId.department,
+          email: app.officerId.email,
+          phoneNo: app.officerId.phoneNo
+        } : null,
+        
+        description: app.description,
+        
+        // File attachments with complete details
+        attachments: appFiles,
+        
+        status: app.status,
+        acknowledgement: app.acknowledgement,
+        submittedAt: app.submittedAt,
+        createdAt: app.createdAt,
+        updatedAt: app.updatedAt
+      };
+    });
+  } else {
+    // Return basic application data (existing functionality)
+    comprehensiveApplications = applications.map(app => ({
       _id: app._id,
       trackingNumber: app.trackingNumber,
       name: app.name,
@@ -410,7 +497,20 @@ const getAllApplications = asyncHandler(async (req, res) => {
       submittedAt: app.submittedAt,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt
-    })),
+    }));
+  }
+
+  // Get summary statistics
+  const statusStats = await Application.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const applicationTypeStats = await Application.aggregate([
+    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
+  ]);
+
+  return successResponse(res, {
+    applications: comprehensiveApplications,
     pagination: {
       currentPage: parseInt(page),
       totalPages: Math.ceil(total / limit),
@@ -421,7 +521,345 @@ const getAllApplications = asyncHandler(async (req, res) => {
     statistics: {
       statusBreakdown: statusStats,
       applicationTypeBreakdown: applicationTypeStats
-    }
+    },
+    comprehensive: comprehensive === 'true'
+  });
+});
+
+// GET /api/applications/comprehensive - Get all applications with comprehensive data
+const getAllApplicationsComprehensive = asyncHandler(async (req, res) => {
+  const { role, nic } = req.user;
+  
+  // Check if user has permission to view applications
+  if (!role) {
+    return errorResponse(res, 'Authentication required', 401);
+  }
+
+  const {
+    page = 1,
+    limit = 50, // Higher limit for comprehensive data
+    status,
+    applicationType,
+    officer,
+    startDate,
+    endDate,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+  } = req.query;
+
+  // Build filter query - IMPORTANT: Filter by user's NIC for security
+  const filter = { cnic: nic }; // Users can only see their own applications
+  
+  // Add additional filters
+  if (status) filter.status = status;
+  if (applicationType) filter.applicationTypeName = { $regex: applicationType, $options: 'i' };
+  if (officer) filter.officerName = { $regex: officer, $options: 'i' };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) filter.createdAt.$lte = new Date(endDate);
+  }
+
+  // Build sort query
+  const sort = {};
+  sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+  // Execute query with pagination - only for the authenticated user
+  const applications = await Application.find(filter)
+    .populate('applicationTypeId', 'name description requirements processingTime fees')
+    .populate('officerId', 'name designation department email phoneNo')
+    .sort(sort)
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+  // Get total count for pagination - only for the authenticated user
+  const total = await Application.countDocuments(filter);
+
+  // Get unique CNICs from applications (should only be the user's own CNIC)
+  const uniqueCnicList = [...new Set(applications.map(app => app.cnic))];
+  
+  // Fetch user data for the authenticated user
+  const User = require('../models/User');
+  const user = await User.findOne({ nic: nic }, 'name email address phoneNo role department designation');
+  
+  if (!user) {
+    return errorResponse(res, 'User data not found', 404);
+  }
+
+  // Fetch file data for all attachments
+  const File = require('../models/File');
+  const allAttachmentUrls = applications.flatMap(app => app.attachments || []);
+  
+  // Extract S3 keys from URLs to find files
+  const s3Keys = allAttachmentUrls.map(url => {
+    const urlParts = url.split('/');
+    return urlParts[urlParts.length - 1]; // Get the filename from URL
+  });
+  
+  const files = await File.find({ fileName: { $in: s3Keys } });
+  const fileMap = {};
+  files.forEach(file => {
+    fileMap[file.fileName] = file;
+  });
+
+  // Enhance applications with comprehensive data
+  const comprehensiveApplications = applications.map(app => {
+    const appFiles = (app.attachments || []).map(url => {
+      const fileName = url.split('/').pop();
+      return fileMap[fileName] || { fileUrl: url, originalName: fileName };
+    });
+
+    return {
+      _id: app._id,
+      trackingNumber: app.trackingNumber,
+      name: app.name,
+      cnic: app.cnic,
+      phone: app.phone,
+      email: app.email,
+      address: app.address,
+      
+      // User data (authenticated user's own data)
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        address: user.address,
+        phoneNo: user.phoneNo,
+        role: user.role,
+        department: user.department,
+        designation: user.designation
+      },
+      
+      // Application type details
+      applicationType: {
+        _id: app.applicationTypeId._id,
+        name: app.applicationTypeName,
+        description: app.applicationTypeId.description,
+        requirements: app.applicationTypeId.requirements,
+        processingTime: app.applicationTypeId.processingTime,
+        fees: app.applicationTypeId.fees
+      },
+      
+      // Officer details
+      officer: app.officerId ? {
+        _id: app.officerId._id,
+        name: app.officerName,
+        designation: app.officerDesignation,
+        department: app.officerId.department,
+        email: app.officerId.email,
+        phoneNo: app.officerId.phoneNo
+      } : null,
+      
+      description: app.description,
+      
+      // File attachments with complete details
+      attachments: appFiles,
+      
+      status: app.status,
+      acknowledgement: app.acknowledgement,
+      submittedAt: app.submittedAt,
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt
+    };
+  });
+
+  // Get summary statistics for the user's applications only
+  const statusStats = await Application.aggregate([
+    { $match: { cnic: nic } },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const applicationTypeStats = await Application.aggregate([
+    { $match: { cnic: nic } },
+    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
+  ]);
+
+  return successResponse(res, {
+    applications: comprehensiveApplications,
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalApplications: total,
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    },
+    statistics: {
+      statusBreakdown: statusStats,
+      applicationTypeBreakdown: applicationTypeStats
+    },
+    userInfo: {
+      nic: user.nic,
+      role: user.role,
+      totalApplications: total
+    },
+    comprehensive: true
+  });
+});
+
+// GET /api/applications/admin/comprehensive - Get ALL applications with comprehensive data (Admin/Superadmin only)
+const getAllApplicationsAdminComprehensive = asyncHandler(async (req, res) => {
+  const { role } = req.user;
+  
+  // Check if user has admin permissions
+  if (role !== 'admin' && role !== 'superadmin') {
+    return errorResponse(res, 'Access denied. Only admin users can view all applications.', 403);
+  }
+
+  const {
+    page = 1,
+    limit = 50,
+    status,
+    applicationType,
+    officer,
+    cnic, // Allow admins to filter by specific CNIC
+    startDate,
+    endDate,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+  } = req.query;
+
+  // Build filter query - Admins can see all applications
+  const filter = {};
+  if (status) filter.status = status;
+  if (applicationType) filter.applicationTypeName = { $regex: applicationType, $options: 'i' };
+  if (officer) filter.officerName = { $regex: officer, $options: 'i' };
+  if (cnic) filter.cnic = { $regex: cnic, $options: 'i' };
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) filter.createdAt.$lte = new Date(endDate);
+  }
+
+  // Build sort query
+  const sort = {};
+  sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+  // Execute query with pagination
+  const applications = await Application.find(filter)
+    .populate('applicationTypeId', 'name description requirements processingTime fees')
+    .populate('officerId', 'name designation department email phoneNo')
+    .sort(sort)
+    .limit(limit * 1)
+    .skip((page - 1) * limit);
+
+  // Get total count for pagination
+  const total = await Application.countDocuments(filter);
+
+  // Get unique CNICs from applications to fetch user data
+  const uniqueCnicList = [...new Set(applications.map(app => app.cnic))];
+  
+  // Fetch user data for all applications
+  const User = require('../models/User');
+  const users = await User.find({ nic: { $in: uniqueCnicList } }, 'name email address phoneNo role department designation');
+  
+  // Create a map for quick user lookup
+  const userMap = {};
+  users.forEach(user => {
+    userMap[user.nic] = user;
+  });
+
+  // Fetch file data for all attachments
+  const File = require('../models/File');
+  const allAttachmentUrls = applications.flatMap(app => app.attachments || []);
+  
+  // Extract S3 keys from URLs to find files
+  const s3Keys = allAttachmentUrls.map(url => {
+    const urlParts = url.split('/');
+    return urlParts[urlParts.length - 1];
+  });
+  
+  const files = await File.find({ fileName: { $in: s3Keys } });
+  const fileMap = {};
+  files.forEach(file => {
+    fileMap[file.fileName] = file;
+  });
+
+  // Enhance applications with comprehensive data
+  const comprehensiveApplications = applications.map(app => {
+    const user = userMap[app.cnic];
+    const appFiles = (app.attachments || []).map(url => {
+      const fileName = url.split('/').pop();
+      return fileMap[fileName] || { fileUrl: url, originalName: fileName };
+    });
+
+    return {
+      _id: app._id,
+      trackingNumber: app.trackingNumber,
+      name: app.name,
+      cnic: app.cnic,
+      phone: app.phone,
+      email: app.email,
+      address: app.address,
+      
+      // User data
+      user: user ? {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        address: user.address,
+        phoneNo: user.phoneNo,
+        role: user.role,
+        department: user.department,
+        designation: user.designation
+      } : null,
+      
+      // Application type details
+      applicationType: {
+        _id: app.applicationTypeId._id,
+        name: app.applicationTypeName,
+        description: app.applicationTypeId.description,
+        requirements: app.applicationTypeId.requirements,
+        processingTime: app.applicationTypeId.processingTime,
+        fees: app.applicationTypeId.fees
+      },
+      
+      // Officer details
+      officer: app.officerId ? {
+        _id: app.officerId._id,
+        name: app.officerName,
+        designation: app.officerDesignation,
+        department: app.officerId.department,
+        email: app.officerId.email,
+        phoneNo: app.officerId.phoneNo
+      } : null,
+      
+      description: app.description,
+      
+      // File attachments with complete details
+      attachments: appFiles,
+      
+      status: app.status,
+      acknowledgement: app.acknowledgement,
+      submittedAt: app.submittedAt,
+      createdAt: app.createdAt,
+      updatedAt: app.updatedAt
+    };
+  });
+
+  // Get summary statistics
+  const statusStats = await Application.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const applicationTypeStats = await Application.aggregate([
+    { $group: { _id: '$applicationTypeName', count: { $sum: 1 } } }
+  ]);
+
+  return successResponse(res, {
+    applications: comprehensiveApplications,
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
+      totalApplications: total,
+      hasNextPage: page * limit < total,
+      hasPrevPage: page > 1
+    },
+    statistics: {
+      statusBreakdown: statusStats,
+      applicationTypeBreakdown: applicationTypeStats
+    },
+    adminAccess: true,
+    comprehensive: true
   });
 });
 
@@ -430,8 +868,10 @@ module.exports = {
   getApplicationByTrackingNumber,
   getUserApplications,
   getUserApplicationsSummary,
-  getUserDetails,
   getAllApplications,
+  getAllApplicationsComprehensive,
+  getAllApplicationsAdminComprehensive,
+  getUserDetails
 };
 
 
